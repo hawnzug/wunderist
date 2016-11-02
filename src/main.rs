@@ -3,6 +3,9 @@ extern crate hyper;
 extern crate rustc_serialize;
 extern crate clap;
 
+mod config;
+use config::Config;
+
 use hyper::{Client, Url};
 use hyper::header::{Headers, ContentType};
 use hyper::mime::{Mime, TopLevel, SubLevel};
@@ -10,39 +13,14 @@ use clap::{Arg, App, SubCommand};
 use rustc_serialize::json::Json;
 use std::io::Read;
 
-use std::fs::File;
-use std::path::Path;
-use std::io::BufReader;
-use std::io::BufRead;
-use std::collections::HashMap;
-
 header! { (XAccessToken, "X-Access-Token") => [String] }
 header! { (XClientID, "X-Client-ID") => [String] }
 
-type Config = HashMap<String, String>;
-
-fn get_config() -> Result<Config, String> {
-    let path = Path::new(".wunderist");
-    let f = File::open(&path).unwrap();
-    let file = BufReader::new(&f);
-
-    let mut config = HashMap::new();
-    for (i, line) in file.lines().enumerate() {
-        let l = line.unwrap();
-        let v: Vec<&str> = l.split(':').map(str::trim).collect();
-        if v.len() != 2 {
-            return Err(format!("config error: more than one colons at line {}", i + 1));
-        }
-        config.insert(v[0].to_string(), v[1].to_string());
-    }
-    Ok(config)
-}
-
 fn get_headers(config: &Config) -> Result<Headers, String> {
     let mut headers = Headers::new();
-    let token = try!(config.get("X-Access-Token")
+    let token = try!(config.cfg.get("X-Access-Token")
                            .ok_or("No X-Access-Token in config!".to_string()));
-    let id = try!(config.get("X-Client-ID")
+    let id = try!(config.cfg.get("X-Client-ID")
                         .ok_or("No X-Client-ID in config!".to_string()));
     headers.set(XClientID(id.to_string()));
     headers.set(XAccessToken(token.to_string()));
@@ -93,7 +71,7 @@ fn get_lists(config: &Config) {
 }
 
 fn get_inbox_id(config: &Config) -> u64 {
-    if let Some(ref id) = config.get("inbox-id") {
+    if let Some(ref id) = config.cfg.get("inbox-id") {
         return id.parse().unwrap();
     }
     let client = Client::new();
@@ -171,7 +149,7 @@ fn main() {
                                                .index(1)))
                       .get_matches();
 
-    let config = match get_config() {
+    let config = match Config::new() {
         Ok(config) => config,
         Err(err) => {
             println!("{}", err);
@@ -196,3 +174,4 @@ fn main() {
         add_task_inbox(name, &config);
     }
 }
+
