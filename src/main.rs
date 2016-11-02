@@ -14,26 +14,33 @@ use clap::{Arg, App, SubCommand};
 fn main() {
     let matches = App::new("WundeRist")
                       .version("0.1.0")
-                      .subcommand(SubCommand::with_name("user").about("print user message"))
-                      .subcommand(SubCommand::with_name("lists").about("print all lists"))
-                      .subcommand(SubCommand::with_name("inbox").about("print all tasks in inbox"))
+                      .subcommand(SubCommand::with_name("user").about("Prints user message"))
+                      .subcommand(SubCommand::with_name("lists").about("Prints all lists"))
+                      .subcommand(SubCommand::with_name("inbox")
+                                      .about("Prints all tasks in inbox"))
+                      .subcommand(SubCommand::with_name("config").about("Set configuration"))
                       .subcommand(SubCommand::with_name("add")
-                                      .about("add task to inbox")
+                                      .about("Add task to inbox")
                                       .arg(Arg::with_name("Task Name")
                                                .help("task name")
                                                .required(true)
                                                .index(1)))
                       .get_matches();
 
-    let mut config = match Config::new() {
+    let config = match Config::new() {
         Ok(config) => config,
         Err(err) => {
             println!("{}", err);
+            println!("You can run `wunderist config` to change configuration");
             return;
         }
     };
 
-    let app = Wunderist::new(config);
+    let mut app = Wunderist::new(config);
+
+    if matches.subcommand_matches("config").is_some() {
+        app.set_config();
+    }
 
     if matches.subcommand_matches("user").is_some() {
         app.get_user();

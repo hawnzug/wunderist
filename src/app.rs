@@ -4,7 +4,8 @@ use hyper::{Client, Url};
 use hyper::header::{Headers, ContentType};
 use hyper::mime::{Mime, TopLevel, SubLevel};
 use rustc_serialize::json::Json;
-use std::io::Read;
+use std::io::{Read, Write};
+use std::io;
 
 header! { (XAccessToken, "X-Access-Token") => [String] }
 header! { (XClientID, "X-Client-ID") => [String] }
@@ -15,20 +16,46 @@ pub struct Wunderist {
 
 impl Wunderist {
     pub fn new(config: Config) -> Wunderist {
-        Wunderist {
-            cfg: config,
-        }
+        Wunderist { cfg: config }
     }
 
     pub fn get_headers(&self) -> Result<Headers, String> {
         let mut headers = Headers::new();
-        let token = try!(self.cfg.cfg.get("X-Access-Token")
-                         .ok_or("No X-Access-Token in config!".to_string()));
-        let id = try!(self.cfg.cfg.get("X-Client-ID")
-                      .ok_or("No X-Client-ID in config!".to_string()));
+        let token = try!(self.cfg
+                             .cfg
+                             .get("X-Access-Token")
+                             .ok_or("No X-Access-Token in config!".to_string()));
+        let id = try!(self.cfg
+                          .cfg
+                          .get("X-Client-ID")
+                          .ok_or("No X-Client-ID in config!".to_string()));
         headers.set(XClientID(id.to_string()));
         headers.set(XAccessToken(token.to_string()));
         Ok(headers)
+    }
+
+    pub fn set_config(&mut self) {
+        println!("Go to https://developer.wunderlist.com/apps for access token and client ID");
+        println!("You can also edit the config file ~/.wunderist manually");
+        println!("Config file should be in following format:");
+        println!("X-Access-Token: Your Access Token(required)");
+        println!("X-Client-ID: Your Client ID(required)");
+        println!("something: something else");
+        if self.cfg.cfg.contains_key("X-Access-Token") && self.cfg.cfg.contains_key("X-Client-ID") {
+            println!("There already exists config, do you still want to change it?");
+        }
+        print!("\nYour Client ID: ");
+        io::stdout().flush().unwrap();
+        let mut input = String::new();
+        io::stdin().read_line(&mut input);
+        self.cfg.cfg.insert("X-Client-ID".to_string(), input.trim().to_string());
+        input.clear();
+        print!("Your Access Token: ");
+        io::stdout().flush().unwrap();
+        io::stdin().read_line(&mut input);
+        self.cfg.cfg.insert("X-Access-Token".to_string(), input.trim().to_string());
+        self.cfg.save();
+        println!("Config updated!");
     }
 
     pub fn get_user(&self) {
