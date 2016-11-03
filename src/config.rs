@@ -1,5 +1,4 @@
 use std::fs::File;
-use std::path::Path;
 use std::io::BufReader;
 use std::io::BufRead;
 use std::io::Write;
@@ -10,7 +9,7 @@ use std::io;
 use std::env;
 
 pub struct Config {
-    pub cfg: HashMap<String, String>,
+    cfg: HashMap<String, String>,
 }
 
 impl Config {
@@ -34,6 +33,40 @@ impl Config {
             config.insert(v[0].to_string(), v[1].to_string());
         }
         Ok(Config { cfg: config })
+    }
+
+    pub fn empty() -> Config {
+        Config { cfg: HashMap::new() }
+    }
+
+    pub fn get(&self, key: &str) -> Option<&String> {
+        self.cfg.get(key)
+    }
+
+    pub fn insert(&mut self, key: String, val: String) {
+        self.cfg.insert(key.to_string(), val.to_string());
+    }
+
+    pub fn set_config(&mut self) -> Result<(), ConfigError> {
+        println!("Go to https://developer.wunderlist.com/apps for access token and client ID");
+        println!("You can also edit the config file ~/.wunderist manually");
+        println!("Config file should be in following format:");
+        println!("X-Access-Token: Your Access Token(required)");
+        println!("X-Client-ID: Your Client ID(required)");
+        println!("something: something else");
+        print!("\nYour Client ID: ");
+        try!(io::stdout().flush());
+        let mut input = String::new();
+        try!(io::stdin().read_line(&mut input));
+        self.insert("X-Client-ID".to_string(), input.trim().to_string());
+        input.clear();
+        print!("Your Access Token: ");
+        try!(io::stdout().flush());
+        try!(io::stdin().read_line(&mut input));
+        self.insert("X-Access-Token".to_string(), input.trim().to_string());
+        try!(self.save());
+        println!("Config updated!");
+        Ok(())
     }
 
     pub fn save(&self) -> Result<(), ConfigError> {
@@ -68,9 +101,7 @@ impl fmt::Display for ConfigError {
                        Enter wunderist config for more information",
                        i)
             }
-            ConfigError::NoHomeDir => {
-                write!(f, "No HOME directory!")
-            }
+            ConfigError::NoHomeDir => write!(f, "No HOME directory!"),
         }
     }
 }

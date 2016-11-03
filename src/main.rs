@@ -27,6 +27,14 @@ fn main() {
                                                .index(1)))
                       .get_matches();
 
+    if matches.subcommand_matches("config").is_some() {
+        let mut config = Config::empty();
+        if let Err(err) = config.set_config() {
+            println!("{}", err);
+            return;
+        }
+    }
+
     let config = match Config::new() {
         Ok(config) => config,
         Err(err) => {
@@ -36,26 +44,46 @@ fn main() {
         }
     };
 
-    let mut app = Wunderist::new(config);
-
-    if matches.subcommand_matches("config").is_some() {
-        app.set_config();
-    }
+    let app = Wunderist::new(config);
 
     if matches.subcommand_matches("user").is_some() {
-        app.get_user();
+        match app.get_user() {
+            Ok(_) => (),
+            Err(err) => {
+                println!("{}", err);
+                return;
+            }
+        }
     }
 
     if matches.subcommand_matches("lists").is_some() {
-        app.get_lists();
+        match app.get_lists() {
+            Ok(_) => (),
+            Err(err) => {
+                println!("{}", err);
+                return;
+            }
+        }
     }
 
     if matches.subcommand_matches("inbox").is_some() {
-        app.get_inbox();
+        match app.get_inbox() {
+            Ok(_) => (),
+            Err(err) => {
+                println!("{}", err);
+                return;
+            }
+        }
     }
 
     if let Some(m) = matches.subcommand_matches("add") {
         let name = m.value_of("Task Name").unwrap();
-        app.add_task_inbox(name);
+        match app.add_task_inbox(name) {
+            Ok(_) => (),
+            Err(err) => {
+                println!("{}", err);
+                return;
+            }
+        }
     }
 }
