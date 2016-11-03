@@ -1,5 +1,4 @@
-use config::Config;
-
+use config::{Config, ConfigError};
 use hyper;
 use hyper::{Client, Url};
 use hyper::header::{Headers, ContentType};
@@ -93,7 +92,7 @@ impl Wunderist {
         Ok(())
     }
 
-    pub fn get_inbox_id(&self) -> Result<String, Error> {
+    pub fn get_inbox_id(&mut self) -> Result<String, Error> {
         if let Some(ref id) = self.cfg.get("inbox-id") {
             return Ok(id.to_string());
         }
@@ -124,6 +123,8 @@ impl Wunderist {
             };
             if list_type == "inbox" {
                 if let Some(&Json::U64(id)) = obj.get("id") {
+                    self.cfg.insert("inbox-id".to_string(), id.to_string());
+                    try!(self.cfg.save());
                     return Ok(id.to_string());
                 } else {
                     return Err(Error::JsonData("No list id in list".to_string()));
@@ -133,7 +134,7 @@ impl Wunderist {
         return Err(Error::InboxID);
     }
 
-    pub fn get_inbox(&self) -> Result<(), Error> {
+    pub fn get_inbox(&mut self) -> Result<(), Error> {
         let id = try!(self.get_inbox_id());
         let client = Client::new();
         let mut url = Url::parse("http://a.wunderlist.com/api/v1/tasks").unwrap();
@@ -180,6 +181,22 @@ impl Wunderist {
         }
         Ok(())
     }
+
+    pub fn add_list(&self, name: &str) -> Result<(), Error> {
+        let client = Client::new();
+        let url = Url::parse("http://a.wunderlist.com/api/v1/lists").unwrap();
+        let data = format!("{{\"title\": \"{}\"}}", name);
+        let mut headers = try!(self.get_headers());
+        headers.set(ContentType(Mime(TopLevel::Application, SubLevel::Json, vec![])));
+        let request = client.post(url).headers(headers).body(&data);
+        let mut res = try!(request.send());
+        let mut buf = String::with_capacity(65535);
+        match res.read_to_string(&mut buf) {
+            Ok(_) => (),
+            Err(e) => println!("err => {:?}", e),
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -187,6 +204,7 @@ pub enum Error {
     AccessToken,
     ClientID,
     InboxID,
+    Cfg(ConfigError),
     JsonData(String),
     ParseJson(json::ParserError),
     Http(hyper::error::Error),
@@ -200,6 +218,7 @@ impl fmt::Display for Error {
             Error::InboxID => write!(f, "Something wrong with Inbox ID"),
             Error::JsonData(ref s) => write!(f, "{}", s),
             Error::Http(ref err) => err.fmt(f),
+            Error::Cfg(ref err) => err.fmt(f),
             Error::ParseJson(ref err) => err.fmt(f),
         }
     }
@@ -213,6 +232,7 @@ impl ::std::error::Error for Error {
             ClientID => "No Client ID in config",
             InboxID => "Something wrong with Inbox ID",
             JsonData(ref s) => &s,
+            Cfg(ref err) => err.description(),
             Http(ref err) => err.description(),
             ParseJson(ref err) => err.description(),
         }
@@ -224,6 +244,7 @@ impl ::std::error::Error for Error {
             AccessToken | ClientID | InboxID | JsonData(_) => None,
             Http(ref err) => Some(err),
             ParseJson(ref err) => Some(err),
+            Cfg(ref err) => Some(err),
         }
     }
 }
@@ -237,5 +258,11 @@ impl From<hyper::error::Error> for Error {
 impl From<json::ParserError> for Error {
     fn from(err: json::ParserError) -> Error {
         Error::ParseJson(err)
+    }
+}
+
+impl From<ConfigError> for Error {
+    fn from(err: ConfigError) -> Error {
+        Error::Cfg(err)
     }
 }
